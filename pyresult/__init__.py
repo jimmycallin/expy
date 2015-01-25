@@ -1,1 +1,1 @@
-from results import Project
+from .results import Project
