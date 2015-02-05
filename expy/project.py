@@ -121,12 +121,12 @@ class Project(object):
             experiment_id = experiment.insert(exp)
             exp_instances = []
 
-            for instance, pred in predicted.items():
-                instance_id = data.find_one(
-                    project_name=self.project_name, instance=instance)['id']
-                if not instance_id:
+            for row in data.find(project_name=self.project_name):
+                if row['instance'] not in predicted:
                     raise KeyError(
                         "Predicted instance {} is not available in the project's test data".format(instance))
+                pred = predicted[row['instance']]
+                instance_id = row['id']
                 exp_instances.append(
                     {'predicted': pred, 'instance_id': instance_id, 'experiment_id': experiment_id})
 
