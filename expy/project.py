@@ -24,8 +24,7 @@ class Project(object):
     """
 
     def __init__(self, 
-                 project_id=None,
-                 name=None,
+                 project_name=None,
                  test_data=None,
                  description=None,
                  assert_clean_repo=False):
@@ -33,9 +32,8 @@ class Project(object):
         if assert_clean_repo:
             assert_repo_is_clean(sys.path[0])
 
-        if project_id:
-            self.project_id = project_id
-        else:
+        self.project = _db['Project'].find_one(name=project_name)
+        if self.project is None:
             # If no project id was given, create a new project
             with _db as db:
                 assert isinstance(test_data, dict)
@@ -43,31 +41,15 @@ class Project(object):
 
                 project = db['Project']
                 config = db['Configuration']
-                data = db['Data']
-                project_id = project.insert({'name': name,
-                                             'description': description,
-                                             'project_path': sys.argv[0]})
+                data = db['TestData']
+                project_name = project.insert({'name': project_name,
+                                               'description': description,
+                                               'project_path': os.path.abspath('.')})
 
-                data.insert_many([{'instance': instance, 'answer': answer, 'project_id': project_id}
+                data.insert_many([{'instance': instance, 'answer': answer, 'project_name': project_name}
                                   for instance, answer in test_data.items()])
 
-                self.project_id = project_id
-
-    @property
-    def name(self):
-        if hasattr(self, '_name'):
-            return self._name
-        else:
-            with _db as db:
-                self._name = db['Project'].find_one(id=self.project_id)['name']
-                return self.name
-
-    @name.setter
-    def name(self, val):
-        with _db as db:
-            db['Project'].update({'id': self.project_id, 'name': val}, ['id'])
-
-        self._name = val
+        self.project_name = project_name
 
     @property
     def description(self):
@@ -76,14 +58,14 @@ class Project(object):
         else:
             with _db as db:
                 self._description = db['Project'].find_one(
-                    id=self.project_id)['description']
+                    name=self.project_name)['description']
                 return self._description
 
     @description.setter
     def description(self, value):
         with _db as db:
             db['Project'].update(
-                {'id': self.project_id, 'description': value}, ['id'])
+                {'name': self.project_name, 'description': value}, ['name'])
             self._description = value
 
     @property
@@ -92,8 +74,7 @@ class Project(object):
             return self._answers
         else:
             with _db as db:
-                self._answers = [x['answer']
-                                for x in db['Data'].find(project_id=self.project_id)]
+                self._answers = [x['answer'] for x in db['TestData'].find(project_name=self.project_name)]
                 return self._answers
 
     @property
@@ -101,7 +82,7 @@ class Project(object):
         if not hasattr(self, '_experiments'):
             with _db as db:
                 self._experiment = [
-                    Experiment(x['id']) for x in db['Experiment'].find(project_id=self.project_id)]
+                    Experiment(x['id']) for x in db['Experiment'].find(project_name=self.project_name)]
         return self._experiment
 
     @property
@@ -109,7 +90,7 @@ class Project(object):
         if not hasattr(self, '_base_config'):
             with _db as db:
                 self._base_config = {c['parameter']: c['value'] for c in db[
-                    'Configuration'].find(project_id=self.project_id)}
+                    'Configuration'].find(project_name=self.project_name)}
         return self._base_config
 
     def new_experiment(self, predicted, configuration, description=None, tags=None):
@@ -130,19 +111,19 @@ class Project(object):
         exp = {'description': description,
                'commit': commit,
                'timestamp': timestamp,
-               'project_id': self.project_id}
+               'project_name': self.project_name}
 
         with _db as db:
             experiment = db['Experiment']
             experiment_result = db['ExperimentResult']
-            data = db['Data']
+            data = db['TestData']
 
             experiment_id = experiment.insert(exp)
             exp_instances = []
 
             for instance, pred in predicted.items():
                 instance_id = data.find_one(
-                    project_id=self.project_id, instance=instance)['id']
+                    project_name=self.project_name, instance=instance)['id']
                 if not instance_id:
                     raise KeyError(
                         "Predicted instance {} is not available in the project's test data".format(instance))
@@ -161,36 +142,32 @@ class Project(object):
 
     @property
     def test_data(self):
-        return {x['instance']: x['answer'] for x in _db['Data'].find(project_id=self.project_id, order_by='id')}
+        return {x['instance']: x['answer'] for x in _db['TestData'].find(project_name=self.project_name, order_by='id')}
     
     @classmethod
-    def search_project(cls, name=None, project_id=None, project_path=None, assert_clean_repo=False):
+    def search_project(cls, project_name=None, project_path=None, assert_clean_repo=False):
         with _db as db:
-            params = {x: y for x, y in {'name': name, 'id': project_id, 'project_path': project_path}.items() if y is not None}
+            params = {x: y for x, y in {'name': project_name, 'project_path': project_path}.items() if y is not None}
             res = db['Project'].find_one(**params)
             if res:
-                return Project(res['id'], assert_clean_repo=assert_clean_repo)
+                return Project(res['name'], assert_clean_repo=assert_clean_repo)
             
             return None
 
     @classmethod
     def get_projects(cls):
-        return [Project(project_id=proj['id']) for proj in _db['Project']]
+        return [Project(name=proj['name']) for proj in _db['Project']]
 
     def delete_project(self):
         with _db as db:
-            db['Project'].delete(id=self.project_id)
-            db['Configuration'].delete(project_id=self.project_id)
-            db['Data'].delete(project_id=self.project_id)
+            db['Project'].delete(name=self.project_name)
+            db['Configuration'].delete(project_name=self.project_name)
+            db['TestData'].delete(project_name=self.project_name)
             for exp in self.experiments:
                 exp.delete_experiment()
 
-
-    def tags(self):
-        pass
-
     def __repr__(self):
-        return "<Project {}: {}>".format(self.project_id, self.name)
+        return "<Project: {}>".format(self.project_name)
 
 
 class Experiment(object):
@@ -201,7 +178,7 @@ class Experiment(object):
     @property
     def project(self):
         with _db as db:
-            return Project(db['Experiment'].find_one(id=self.experiment_id)['project_id'])
+            return Project(db['Experiment'].find_one(id=self.experiment_id)['project_name'])
 
     @property
     def test_data(self):        
@@ -210,9 +187,8 @@ class Experiment(object):
     @property
     def answers(self):
         if not hasattr(self, '_answers'):
-            project_id = self.project.project_id
             self._answers = [
-                x['answer'] for x in _db['Data'].find(project_id=project_id, order_by='id')]
+                x['answer'] for x in _db['TestData'].find(project_name=self.project.project_name, order_by='id')]
         return self._answers
 
     @property
@@ -220,9 +196,9 @@ class Experiment(object):
         if not hasattr(self, '_predicted'):
             with _db as db:
                 query = 'select ExperimentResult.predicted from ExperimentResult  \
-                        join Data on ExperimentResult.instance_id = Data.id \
+                        join TestData on ExperimentResult.instance_id = TestData.id \
                         where ExperimentResult.experiment_id = {}  \
-                        order by Data.id'.format(self.experiment_id)
+                        order by TestData.id'.format(self.experiment_id)
                 self._predicted = [x['predicted'] for x in db.query(query)]
         return self._predicted
 
