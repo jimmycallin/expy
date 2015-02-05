@@ -6,8 +6,8 @@ import sys
 import git
 from datetime import datetime
 from . import visualize
-_db = dataset.connect('mysql+pymysql://root@localhost/expy')
 
+_db = dataset.connect('mysql+pymysql://root@localhost/expy')
 
 def assert_repo_is_clean(path):
     repo = git.Repo(path)
@@ -39,6 +39,7 @@ class Project(object):
             # If no project id was given, create a new project
             with _db as db:
                 assert isinstance(test_data, dict)
+                assert len(test_data) > 0
 
                 project = db['Project']
                 config = db['Configuration']
@@ -86,14 +87,14 @@ class Project(object):
             self._description = value
 
     @property
-    def actual(self):
-        if hasattr(self, '_actual'):
-            return self._actual
+    def answers(self):
+        if hasattr(self, '_answers'):
+            return self._answers
         else:
             with _db as db:
-                self._actual = {x['instance']: x['answer']
-                                for x in db['Data'].find(project_id=self.project_id)}
-                return self.actual
+                self._answers = [x['answer']
+                                for x in db['Data'].find(project_id=self.project_id)]
+                return self._answers
 
     @property
     def experiments(self):
@@ -112,7 +113,7 @@ class Project(object):
         return self._base_config
 
     def new_experiment(self, predicted, configuration, description=None, tags=None):
-        if len(predicted) != len(self.actual):
+        if len(predicted) != len(self.answers):
             raise ValueError("Experiment number of instances mismatch.")
 
         try:
@@ -149,8 +150,9 @@ class Project(object):
                     {'predicted': pred, 'instance_id': instance_id, 'experiment_id': experiment_id})
 
             experiment_result.insert_many(exp_instances)
-            db['Tag'].insert_many(
-                [{'experiment_id': experiment_id, 'tag': str(tag)} for tag in tags])
+            if tags:
+                db['Tag'].insert_many(
+                    [{'experiment_id': experiment_id, 'tag': str(tag)} for tag in tags])
 
             db['Configuration'].insert_many([{'parameter': cparam, 'value': str(cvalue), 'experiment_id': experiment_id}
                                              for cparam, cvalue in configuration.items()])
@@ -199,19 +201,19 @@ class Experiment(object):
     @property
     def project(self):
         with _db as db:
-            return db['Experiment'].find_one(id=self.experiment_id)['project_id']
+            return Project(db['Experiment'].find_one(id=self.experiment_id)['project_id'])
 
     @property
     def test_data(self):        
         return self.project.test_data
 
     @property
-    def actual(self):
-        if not hasattr(self, '_actual'):
-            self.project.project_id
-            self._actual = [
+    def answers(self):
+        if not hasattr(self, '_answers'):
+            project_id = self.project.project_id
+            self._answers = [
                 x['answer'] for x in _db['Data'].find(project_id=project_id, order_by='id')]
-        return self._actual
+        return self._answers
 
     @property
     def predicted(self):
@@ -246,46 +248,46 @@ class Experiment(object):
     def labels(self):
         if not hasattr(self, '_labels'):
             self._labels = list(
-                {label for label in self.actual + self.predicted})
+                {label for label in self.answers + self.predicted})
         return self._labels
 
     @property
     def precision(self):
-        act = [self.labels.index(x) for x in self.actual]
+        act = [self.labels.index(x) for x in self.answers]
         pred = [self.labels.index(x) for x in self.predicted]
         return measures.precision(act, pred)
 
     @property
     def recall(self):
-        act = [self.labels.index(x) for x in self.actual]
+        act = [self.labels.index(x) for x in self.answers]
         pred = [self.labels.index(x) for x in self.predicted]
         return measures.recall(act, pred)
 
     @property
     def f1_score(self):
-        act = [self.labels.index(x) for x in self.actual]
+        act = [self.labels.index(x) for x in self.answers]
         pred = [self.labels.index(x) for x in self.predicted]
         return measures.f1_score(act, pred)
 
     @property
     def num_correct(self):
-        return len([x for x, y in zip(self.actual, self.predicted) if x == y])
+        return len([x for x, y in zip(self.answers, self.predicted) if x == y])
 
     @property
     def accuracy(self):
-        return self.num_correct / len(self.actual)
+        return self.num_correct / len(self.answers)
 
     @property
     def wrongly_classified(self):
-        return [(instance, pred, act) for instance, pred, act in zip(self.test_data, self.predicted, self.actual) if pred != act]
+        return [(instance, pred, act) for instance, pred, act in zip(self.test_data, self.predicted, self.answers) if pred != act]
 
     def confusion_matrix(self, output='matrix'):
         if output == 'matrix':
-            return measures.confusion_matrix(self.actual, self.predicted)
+            return measures.confusion_matrix(self.answers, self.predicted)
         elif output == 'plot':
-            return visualize.confusion_matrix(self.actual, self.predicted)
+            return visualize.confusion_matrix(self.answers, self.predicted)
         elif output == 'latex':
-            return measures.confusion_matrix(self.actual, self.predicted).to_latex()
+            return measures.confusion_matrix(self.answers, self.predicted).to_latex()
 
     def experiment_report(self, accuracy=False, precision=True, recall=True, f1_score=True,):
         # They are split up to keep all warnings to before the printout

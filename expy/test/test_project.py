@@ -13,7 +13,7 @@ class ProjectTest(unittest.TestCase):
         expy.project._db = self.db
         self.name = "test instance"
         self.description = "just a test"
-        self.test_data = {'here is a test instance': 'actual answer',
+        self.test_data = {'here is a test instance': 'answers answer',
                           'here is another one': 'new answer'}
 
         self.project = expy.Project(name=self.name, description=self.description, test_data=self.test_data)
@@ -21,7 +21,7 @@ class ProjectTest(unittest.TestCase):
         self.ex_description = "a test experiment"
         self.ex_tags = ['a tag', 'another tag']
         self.ex_configuration = {'language': 'english', 'dimensionality': 2000}
-        self.ex_predicted = {'here is a test instance': 'actual answer',
+        self.ex_predicted = {'here is a test instance': 'answers answer',
                      'here is another one': 'new answer'}
         experiment = self.project.new_experiment(description=self.ex_description,
                                                  configuration=self.ex_configuration,
@@ -56,8 +56,8 @@ class ProjectTest(unittest.TestCase):
         test_data = self.project.test_data
         self.assertEqual(test_data, self.test_data)
 
-    def testActual(self):
-        actual = self.project.actual
+    def testSnswers(self):
+        answers = self.project.answers
 
     def testPredicted(self):
         pred = self.experiment.predicted
@@ -66,7 +66,7 @@ class ProjectTest(unittest.TestCase):
         description = "a small experiment"
         tags = ['for deletion', 'another tag']
         configuration = {'language': 'english', 'dimensionality': 2000}
-        predicted = {'here is a test instance': 'actual answer',
+        predicted = {'here is a test instance': 'answers answer',
                      'here is another one': 'not the same'}
 
         experiment = self.project.new_experiment(description=description,
