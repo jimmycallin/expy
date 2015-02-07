@@ -99,7 +99,7 @@ class Project(object):
 
         try:
             repo = git.Repo(sys.path[0])
-            commit = repo.head.log()[0].newhexsha
+            commit = repo.head.log()[-1].newhexsha
             if repo.is_dirty():
                 print("Warning: The git repository has uncommited changes,"
                       "the registered commit is likely to not represent the current code.")
@@ -156,7 +156,7 @@ class Project(object):
 
     @classmethod
     def get_projects(cls):
-        return [Project(name=proj['name']) for proj in _db['Project']]
+        return [Project(project_name=proj['name']) for proj in _db['Project']]
 
     def delete_project(self):
         with _db as db:
@@ -209,6 +209,10 @@ class Experiment(object):
     @property
     def description(self):
         return _db['Experiment'].find_one(id=self.experiment_id)['description']
+
+    @property
+    def commit(self):
+        return _db['Experiment'].find_one(id=self.experiment_id)['commit']
 
     @property
     def configuration(self):
@@ -287,7 +291,7 @@ class Experiment(object):
 
     def __repr__(self):
         timest = self.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-        return "<Experiment {} of project {}. Timestamp: {}>".format(self.experiment_id, self.project.name, timest)
+        return "<Experiment {} of project {}. Timestamp: {}>".format(self.experiment_id, self.project.project_name, timest)
 
     def __str__(self):
         timest = self.timestamp.strftime('%Y-%m-%d %H:%M:%S')
