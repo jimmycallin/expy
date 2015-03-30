@@ -1,13 +1,15 @@
 import time
-from . import measures
 import dataset
 import os
 import sys
 import git
 from datetime import datetime
-from . import visualize
 
-_db = dataset.connect('mysql+pymysql://root@localhost/expy')
+from . import visualize
+from . import config
+from . import measures
+
+_db = dataset.connect(config.database_url)
 
 def assert_repo_is_clean(path):
     repo = git.Repo(path)

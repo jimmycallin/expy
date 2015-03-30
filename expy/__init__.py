@@ -1,4 +1,5 @@
-import pymysql
+from . import config
+from .config import db
 
 create_database = "CREATE DATABASE IF NOT EXISTS expy; USE expy;"
 
@@ -24,8 +25,6 @@ CONSTRAINT `TestDataProject_fk_1`
     REFERENCES Project(name)
     ON DELETE CASCADE
 );
-
-ALTER TABLE TestData ADD INDEX (project_name);
 
 CREATE TABLE IF NOT EXISTS ExperimentResult
 (
@@ -86,7 +85,7 @@ CONSTRAINT `ExperimentProject_fk_1`
 );
 """
 
-cursor = pymysql.connect(user='root').cursor()
+cursor = db.connect(user=config.db_user, passwd=config.db_password).cursor()
 cursor.execute(create_database + sql)
 
 from .project import Project
