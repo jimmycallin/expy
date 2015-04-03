@@ -1,4 +1,3 @@
-import time
 import dataset
 import os
 import sys
@@ -10,6 +9,7 @@ from . import config
 from . import measures
 
 _db = dataset.connect(config.database_url)
+
 
 def assert_repo_is_clean(path):
     repo = git.Repo(path)
@@ -25,7 +25,7 @@ class Project(object):
     If Project ID is set, just return an existing project.
     """
 
-    def __init__(self, 
+    def __init__(self,
                  project_name=None,
                  test_data=None,
                  description=None,
@@ -42,7 +42,6 @@ class Project(object):
                 assert len(test_data) > 0
 
                 project = db['Project']
-                config = db['Configuration']
                 data = db['TestData']
                 project_name = project.insert({'name': project_name,
                                                'description': description,
@@ -95,7 +94,12 @@ class Project(object):
                     'Configuration'].find(project_name=self.project_name)}
         return self._base_config
 
-    def new_experiment(self, predicted, configuration, description=None, tags=None):
+    def new_experiment(self,
+                       predicted,
+                       configuration,
+                       description=None,
+                       tags=None):
+
         if len(predicted) != len(self.answers):
             raise ValueError("Experiment number of instances mismatch.")
 
@@ -104,8 +108,9 @@ class Project(object):
             commit = repo.head.log()[-1].newhexsha
             if repo.is_dirty():
                 print("Warning: The git repository has uncommited changes,"
-                      "the registered commit is likely to not represent the current code.")
-        except git.InvalidGitRepositoryError as e:
+                      "the registered commit is likely"
+                      "to not represent the current code.")
+        except git.InvalidGitRepositoryError:
             commit = None
 
         timestamp = datetime.now()
@@ -126,18 +131,24 @@ class Project(object):
             for row in data.find(project_name=self.project_name):
                 if row['instance'] not in predicted:
                     raise KeyError(
-                        "Predicted instance {} is not available in the project's test data".format(instance))
+                        "Predicted instance {} is not available\
+                         in the project's test data".format(row['instance']))
                 pred = predicted[row['instance']]
                 instance_id = row['id']
                 exp_instances.append(
-                    {'predicted': pred, 'instance_id': instance_id, 'experiment_id': experiment_id})
+                    {'predicted': pred,
+                     'instance_id': instance_id,
+                     'experiment_id': experiment_id})
 
             experiment_result.insert_many(exp_instances)
             if tags:
                 db['Tag'].insert_many(
-                    [{'experiment_id': experiment_id, 'tag': str(tag)} for tag in tags])
+                    [{'experiment_id': experiment_id,
+                      'tag': str(tag)} for tag in tags])
 
-            db['Configuration'].insert_many([{'parameter': cparam, 'value': str(cvalue), 'experiment_id': experiment_id}
+            db['Configuration'].insert_many([{'parameter': cparam,
+                                              'value': str(cvalue),
+                                              'experiment_id': experiment_id}
                                              for cparam, cvalue in configuration.items()])
 
         return Experiment(experiment_id)
@@ -145,7 +156,7 @@ class Project(object):
     @property
     def test_data(self):
         return {x['instance']: x['answer'] for x in _db['TestData'].find(project_name=self.project_name, order_by='id')}
-    
+
     @classmethod
     def search_project(cls, project_name=None, project_path=None, assert_clean_repo=False):
         with _db as db:
@@ -153,7 +164,7 @@ class Project(object):
             res = db['Project'].find_one(**params)
             if res:
                 return Project(res['name'], assert_clean_repo=assert_clean_repo)
-            
+
             return None
 
     @classmethod
@@ -183,7 +194,7 @@ class Experiment(object):
             return Project(db['Experiment'].find_one(id=self.experiment_id)['project_name'])
 
     @property
-    def test_data(self):        
+    def test_data(self):
         return self.project.test_data
 
     @property
@@ -218,7 +229,8 @@ class Experiment(object):
 
     @property
     def configuration(self):
-        return {conf['parameter']: conf['value'] for conf in _db['Configuration'].find(experiment_id=self.experiment_id)}
+        return {conf['parameter']: conf['value']
+                for conf in _db['Configuration'].find(experiment_id=self.experiment_id)}
 
     @description.setter
     def description(self, value):
@@ -261,7 +273,8 @@ class Experiment(object):
 
     @property
     def wrongly_classified(self):
-        return [(instance, pred, act) for instance, pred, act in zip(self.test_data, self.predicted, self.answers) if pred != act]
+        return [(instance, pred, act)
+                for instance, pred, act in zip(self.test_data, self.predicted, self.answers) if pred != act]
 
     def confusion_matrix(self, output='matrix'):
         if output == 'matrix':
@@ -293,7 +306,9 @@ class Experiment(object):
 
     def __repr__(self):
         timest = self.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-        return "<Experiment {} of project {}. Timestamp: {}>".format(self.experiment_id, self.project.project_name, timest)
+        return "<Experiment {} of project {}. Timestamp: {}>".format(self.experiment_id,
+                                                                     self.project.project_name,
+                                                                     timest)
 
     def __str__(self):
         timest = self.timestamp.strftime('%Y-%m-%d %H:%M:%S')

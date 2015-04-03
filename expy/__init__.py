@@ -12,6 +12,34 @@ project_path text,
 PRIMARY KEY (name)
 );
 
+CREATE TABLE IF NOT EXISTS Experiment
+(
+id int(11) NOT NULL AUTO_INCREMENT,
+project_name varchar(255) NOT NULL,
+description text,
+`commit` text,
+`timestamp` datetime,
+PRIMARY KEY (id),
+
+CONSTRAINT `ExperimentProject_fk_1`
+    FOREIGN KEY (project_name) 
+    REFERENCES Project(name)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS Configuration
+(
+experiment_id int(11) NOT NULL,
+parameter varchar(255) NOT NULL,
+value text,
+PRIMARY KEY (experiment_id, parameter),
+
+CONSTRAINT `ConfigurationExperiment_fk_1`
+    FOREIGN KEY (experiment_id) 
+    REFERENCES Experiment(id)
+    ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS TestData
 (
 id int(11) NOT NULL AUTO_INCREMENT,
@@ -56,33 +84,7 @@ CONSTRAINT `TagExperiment_fk_1`
     ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS Configuration
-(
-experiment_id int(11) NOT NULL,
-parameter varchar(255) NOT NULL,
-value text,
-PRIMARY KEY (experiment_id, parameter),
 
-CONSTRAINT `ConfigurationExperiment_fk_1`
-    FOREIGN KEY (experiment_id) 
-    REFERENCES Experiment(id)
-    ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS Experiment
-(
-id int(11) NOT NULL AUTO_INCREMENT,
-project_name varchar(255) NOT NULL,
-description text,
-`commit` text,
-`timestamp` datetime,
-PRIMARY KEY (id),
-
-CONSTRAINT `ExperimentProject_fk_1`
-    FOREIGN KEY (project_name) 
-    REFERENCES Project(name)
-    ON DELETE CASCADE
-);
 """
 
 cursor = db.connect(user=config.db_user, passwd=config.db_password).cursor()
