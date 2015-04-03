@@ -2,7 +2,11 @@
 
 Expy is a tool for saving the results of your classification experiments in a database, along with additional experiment information such as configuration settings, timestamp of run, commit ID of your experiment's code base, et cetera. The purpose of this is to help you organize your work into projects where each experiment is reproducible in five years just as easily as today.
 
+<<<<<<< HEAD
 ## How to use
+=======
+# How to use
+>>>>>>> fcf10a71c9d31b5f3bb816ccbd4208381d75fac1
 
 Create a project by existing one by instantiating the Project class:
 
@@ -56,4 +60,3 @@ Needs a MySQL database for storing. For now you add your database user credentia
 Make sure you have everything installed correctly under requirements. Thereafter:
     
     python setup.py install
-
